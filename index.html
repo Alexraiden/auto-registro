@@ -858,8 +858,10 @@
       const margin = 10;
       const pageHeight = doc.internal.pageSize.getHeight();
       const headerY = 14;
-      const headerHeight = 10;
       const blankRowHeight = 12;
+      const cellPaddingX = 1.5;
+      const cellPaddingY = 2;
+      const lineHeight = 3.8;
       const widths = [19, 36, 36, 36, 36, 27];
       const headers = [
         "Fecha",
@@ -870,9 +872,11 @@
         "Emociones de 1 a 10\n(ej. tristeza 8)"
       ];
       const rows = entries.length ? entries : [{ date: dateInput.value }];
+      const headerLines = preparePdfLines(doc, headers, widths, cellPaddingX);
+      const headerHeight = measurePdfRowHeight(headerLines, cellPaddingY, lineHeight, 10);
 
       let y = headerY;
-      drawPdfHeader(doc, headers, widths, margin, y);
+      drawPdfHeader(doc, headerLines, widths, margin, y, headerHeight, cellPaddingY, lineHeight);
       y += headerHeight;
 
       rows.forEach((entry) => {
@@ -884,29 +888,38 @@
           entry.action || "",
           emotionText(entry)
         ];
-        const lines = values.map((value, index) => doc.splitTextToSize(String(value), widths[index] - 3));
-        const rowHeight = Math.max(12, ...lines.map((line) => line.length * 3.7 + 4));
+        const lines = preparePdfLines(doc, values, widths, cellPaddingX);
+        const rowHeight = measurePdfRowHeight(lines, cellPaddingY, lineHeight, 12);
 
         if (y + rowHeight > pageHeight - margin) {
           doc.addPage();
           y = headerY;
-          drawPdfHeader(doc, headers, widths, margin, y);
+          drawPdfHeader(doc, headerLines, widths, margin, y, headerHeight, cellPaddingY, lineHeight);
           y += headerHeight;
         }
 
-        drawPdfRow(doc, lines, widths, margin, y, rowHeight);
+        drawPdfRow(doc, lines, widths, margin, y, rowHeight, cellPaddingX, cellPaddingY, lineHeight);
         y += rowHeight;
       });
 
       while (y + blankRowHeight <= pageHeight - margin) {
-        drawPdfRow(doc, ["", "", "", "", "", ""], widths, margin, y, blankRowHeight);
+        drawPdfRow(doc, [[], [], [], [], [], []], widths, margin, y, blankRowHeight, cellPaddingX, cellPaddingY, lineHeight);
         y += blankRowHeight;
       }
 
       return doc.output("blob");
     }
 
-    function drawPdfHeader(doc, headers, widths, x, y) {
+    function preparePdfLines(doc, values, widths, paddingX) {
+      return values.map((value, index) => doc.splitTextToSize(String(value || ""), widths[index] - paddingX * 2));
+    }
+
+    function measurePdfRowHeight(lines, paddingY, lineHeight, minimumHeight) {
+      const maxLines = Math.max(1, ...lines.map((line) => line.length || 1));
+      return Math.max(minimumHeight, paddingY * 2 + maxLines * lineHeight);
+    }
+
+    function drawPdfHeader(doc, lines, widths, x, y, height, paddingY, lineHeight) {
       const headerColor = cssColorToRgb("--teal");
       doc.setFont("helvetica", "bold");
       doc.setFontSize(7.5);
@@ -914,11 +927,11 @@
       doc.setDrawColor(51, 51, 51);
       let currentX = x;
 
-      headers.forEach((header, index) => {
+      lines.forEach((line, index) => {
         doc.setFillColor(headerColor.r, headerColor.g, headerColor.b);
-        doc.rect(currentX, y, widths[index], 10, "FD");
-        const lines = doc.splitTextToSize(header, widths[index] - 2);
-        doc.text(lines, currentX + widths[index] / 2, y + 4, { align: "center", baseline: "middle" });
+        doc.rect(currentX, y, widths[index], height, "FD");
+        const textY = y + paddingY + lineHeight * 0.75;
+        doc.text(line, currentX + widths[index] / 2, textY, { align: "center", lineHeightFactor: 1.1 });
         currentX += widths[index];
       });
     }
@@ -934,7 +947,7 @@
       };
     }
 
-    function drawPdfRow(doc, lines, widths, x, y, height) {
+    function drawPdfRow(doc, lines, widths, x, y, height, paddingX, paddingY, lineHeight) {
       doc.setFont("helvetica", "normal");
       doc.setFontSize(7.5);
       doc.setTextColor(0, 0, 0);
@@ -943,7 +956,9 @@
 
       lines.forEach((line, index) => {
         doc.rect(currentX, y, widths[index], height);
-        doc.text(line, currentX + 1.5, y + 4);
+        if (line.length) {
+          doc.text(line, currentX + paddingX, y + paddingY + lineHeight * 0.75, { lineHeightFactor: 1.1 });
+        }
         currentX += widths[index];
       });
     }
