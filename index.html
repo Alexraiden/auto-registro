@@ -864,12 +864,12 @@
       const lineHeight = 3.8;
       const widths = [19, 36, 36, 36, 36, 27];
       const headers = [
-        "Fecha",
-        "Situación",
-        "¿Qué pienso?",
-        "¿Qué siento?",
-        "¿Qué hago?",
-        "Emociones de 1 a 10\n(ej. tristeza 8)"
+        { title: "Fecha" },
+        { title: "Situación" },
+        { title: "¿Qué pienso?" },
+        { title: "¿Qué siento?" },
+        { title: "¿Qué hago?" },
+        { title: "Emociones de\n1 a 10", subtitle: "(ej. tristeza 8)" }
       ];
       const rows = entries.length ? entries : [{ date: dateInput.value }];
       const headerLines = preparePdfLines(doc, headers, widths, cellPaddingX);
@@ -911,7 +911,10 @@
     }
 
     function preparePdfLines(doc, values, widths, paddingX) {
-      return values.map((value, index) => doc.splitTextToSize(String(value || ""), widths[index] - paddingX * 2));
+      return values.map((value, index) => {
+        const text = typeof value === "object" ? value.title || "" : value || "";
+        return doc.splitTextToSize(String(text), widths[index] - paddingX * 2);
+      });
     }
 
     function measurePdfRowHeight(lines, paddingY, lineHeight, minimumHeight) {
@@ -922,7 +925,6 @@
     function drawPdfHeader(doc, lines, widths, x, y, height, paddingY, lineHeight) {
       const headerColor = cssColorToRgb("--teal");
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(7.5);
       doc.setTextColor(0, 0, 0);
       doc.setDrawColor(51, 51, 51);
       let currentX = x;
@@ -930,8 +932,19 @@
       lines.forEach((line, index) => {
         doc.setFillColor(headerColor.r, headerColor.g, headerColor.b);
         doc.rect(currentX, y, widths[index], height, "FD");
-        const textY = y + paddingY + lineHeight * 0.75;
-        doc.text(line, currentX + widths[index] / 2, textY, { align: "center", lineHeightFactor: 1.1 });
+
+        if (index === 5) {
+          const centerX = currentX + widths[index] / 2;
+          doc.setFontSize(6.2);
+          doc.text(["Emociones de", "1 a 10"], centerX, y + paddingY + 2.8, { align: "center", lineHeightFactor: 1.05 });
+          doc.setFontSize(4.8);
+          doc.text("(ej. tristeza 8)", centerX, y + paddingY + 8.1, { align: "center" });
+        } else {
+          doc.setFontSize(7.5);
+          const textY = y + paddingY + lineHeight * 0.75;
+          doc.text(line, currentX + widths[index] / 2, textY, { align: "center", lineHeightFactor: 1.1 });
+        }
+
         currentX += widths[index];
       });
     }
