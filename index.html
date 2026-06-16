@@ -857,6 +857,9 @@
       const doc = new jsPdf({ unit: "mm", format: "a4", orientation: "portrait" });
       const margin = 10;
       const pageHeight = doc.internal.pageSize.getHeight();
+      const headerY = 14;
+      const headerHeight = 10;
+      const blankRowHeight = 12;
       const widths = [19, 36, 36, 36, 36, 27];
       const headers = [
         "Fecha",
@@ -867,16 +870,12 @@
         "Emociones de 1 a 10\n(ej. tristeza 8)"
       ];
       const rows = entries.length ? entries : [{ date: dateInput.value }];
-      const printableRows = [...rows];
-      while (printableRows.length < 22) {
-        printableRows.push({});
-      }
 
-      let y = 14;
+      let y = headerY;
       drawPdfHeader(doc, headers, widths, margin, y);
-      y += 10;
+      y += headerHeight;
 
-      printableRows.forEach((entry) => {
+      rows.forEach((entry) => {
         const values = [
           formatDate(entry.date || ""),
           entry.situation || "",
@@ -890,14 +889,19 @@
 
         if (y + rowHeight > pageHeight - margin) {
           doc.addPage();
-          y = 14;
+          y = headerY;
           drawPdfHeader(doc, headers, widths, margin, y);
-          y += 10;
+          y += headerHeight;
         }
 
         drawPdfRow(doc, lines, widths, margin, y, rowHeight);
         y += rowHeight;
       });
+
+      while (y + blankRowHeight <= pageHeight - margin) {
+        drawPdfRow(doc, ["", "", "", "", "", ""], widths, margin, y, blankRowHeight);
+        y += blankRowHeight;
+      }
 
       return doc.output("blob");
     }
@@ -906,10 +910,12 @@
       const headerColor = cssColorToRgb("--teal");
       doc.setFont("helvetica", "bold");
       doc.setFontSize(7.5);
-      doc.setFillColor(headerColor.r, headerColor.g, headerColor.b);
+      doc.setTextColor(0, 0, 0);
+      doc.setDrawColor(51, 51, 51);
       let currentX = x;
 
       headers.forEach((header, index) => {
+        doc.setFillColor(headerColor.r, headerColor.g, headerColor.b);
         doc.rect(currentX, y, widths[index], 10, "FD");
         const lines = doc.splitTextToSize(header, widths[index] - 2);
         doc.text(lines, currentX + widths[index] / 2, y + 4, { align: "center", baseline: "middle" });
@@ -931,6 +937,8 @@
     function drawPdfRow(doc, lines, widths, x, y, height) {
       doc.setFont("helvetica", "normal");
       doc.setFontSize(7.5);
+      doc.setTextColor(0, 0, 0);
+      doc.setDrawColor(51, 51, 51);
       let currentX = x;
 
       lines.forEach((line, index) => {
