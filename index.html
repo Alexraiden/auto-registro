@@ -72,6 +72,24 @@
       box-shadow: none;
     }
 
+    .sync-panel.compact {
+      padding: 10px 12px;
+    }
+
+    .sync-panel.compact .sync-head {
+      margin-bottom: 0;
+    }
+
+    .sync-panel.compact h2,
+    .sync-panel.compact .sync-controls,
+    .sync-panel.compact .sync-copy {
+      display: none;
+    }
+
+    .sync-panel.compact .sync-details {
+      display: inline-flex;
+    }
+
     .sync-head {
       display: flex;
       flex-wrap: wrap;
@@ -83,6 +101,13 @@
 
     .sync-head h2 {
       margin: 0;
+    }
+
+    .sync-details {
+      display: none;
+      min-height: 44px;
+      padding: 8px 12px;
+      font-size: 0.95rem;
     }
 
     .status {
@@ -410,11 +435,12 @@
         <h2>Sincronización</h2>
         <div id="sync-status" class="status">Guardado en este dispositivo</div>
       </div>
-      <div class="actions">
+      <div class="actions sync-controls">
         <button type="button" id="create-sync">Crear enlace privado</button>
         <button class="secondary" type="button" id="connect-sync">Conectar con enlace privado</button>
         <button class="ghost" type="button" id="sync-now">Sincronizar ahora</button>
       </div>
+      <button class="ghost sync-details" type="button" id="show-sync-details">Sincronización</button>
       <div id="sync-copy" class="sync-copy" hidden>
         <strong>Enlace privado</strong>
         <div id="sync-link" class="sync-link"></div>
@@ -552,6 +578,7 @@
     const syncCopy = document.querySelector("#sync-copy");
     const syncLink = document.querySelector("#sync-link");
     const conflictPanel = document.querySelector("#conflict");
+    const syncPanel = document.querySelector(".sync-panel");
 
     form.addEventListener("submit", (event) => {
       event.preventDefault();
@@ -605,10 +632,11 @@
         const accessHash = await hashSecret(secret);
         syncState = { syncId, secret, accessHash };
         saveSyncState();
-        showPrivateLink();
+        showPrivateLink({ expanded: true });
         setSyncStatus("Guardando en línea...", "warn");
         await pushRemote({ force: true });
         setSyncStatus("Sincronizado", "ok");
+        updateSyncPanel();
       } catch (error) {
         setSyncError(error);
       }
@@ -624,22 +652,36 @@
       await syncNow();
     });
 
+    document.querySelector("#show-sync-details").addEventListener("click", () => {
+      updateSyncPanel({ expanded: true });
+    });
+
     document.querySelector("#load-remote").addEventListener("click", async () => {
       if (!pendingRemoteRecord) return;
       await applyRemoteRecord(pendingRemoteRecord);
       pendingRemoteRecord = null;
       conflictPanel.hidden = true;
       setSyncStatus("Sincronizado", "ok");
+      updateSyncPanel();
     });
 
     document.querySelector("#replace-remote").addEventListener("click", async () => {
       pendingRemoteRecord = null;
       conflictPanel.hidden = true;
       await pushRemote({ force: true });
+      updateSyncPanel();
     });
 
     window.addEventListener("online", () => {
       syncIfReady();
+    });
+
+    window.addEventListener("focus", () => {
+      syncIfReady();
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) syncIfReady();
     });
 
     function readEntryFromForm() {
@@ -833,6 +875,7 @@
         if (!entries.length && Array.isArray(remotePayload.entries) && remotePayload.entries.length) {
           await applyRemoteRecord(remoteRecord);
           setSyncStatus("Sincronizado", "ok");
+          updateSyncPanel();
           return;
         }
 
@@ -841,10 +884,18 @@
           remotePayload.updatedAt !== localMeta.updatedAt &&
           JSON.stringify(remotePayload.entries || []) !== JSON.stringify(entries);
 
+        if ((remoteVersion > localVersion || remoteChangedAtSameVersion) && !hasUnsyncedLocalChanges()) {
+          await applyRemoteRecord(remoteRecord);
+          setSyncStatus("Sincronizado", "ok");
+          updateSyncPanel();
+          return;
+        }
+
         if (remoteVersion > localVersion || remoteChangedAtSameVersion) {
           pendingRemoteRecord = remoteRecord;
           conflictPanel.hidden = false;
           setSyncStatus("Conflicto", "warn");
+          updateSyncPanel({ expanded: true });
           return;
         }
 
@@ -853,7 +904,9 @@
           return;
         }
 
+        markSynced();
         setSyncStatus("Sincronizado", "ok");
+        updateSyncPanel();
       } catch (error) {
         setSyncError(error);
       }
@@ -912,7 +965,9 @@
       });
 
       if (!response.ok) throw new Error("No se pudo guardar en línea");
+      markSynced();
       setSyncStatus("Sincronizado", "ok");
+      updateSyncPanel();
     }
 
     async function applyRemoteRecord(remoteRecord) {
@@ -924,8 +979,24 @@
       };
       localStorage.setItem(entriesKey, JSON.stringify(entries));
       localStorage.setItem(metaKey, JSON.stringify(localMeta));
+      markSynced();
       renderEntries();
       renderPrint();
+    }
+
+    function hasUnsyncedLocalChanges() {
+      if (!syncState || !syncState.lastSyncedUpdatedAt) return false;
+      return localMeta.updatedAt !== syncState.lastSyncedUpdatedAt;
+    }
+
+    function markSynced() {
+      if (!syncState) return;
+      syncState = {
+        ...syncState,
+        lastSyncedVersion: Number(localMeta.version || 0),
+        lastSyncedUpdatedAt: localMeta.updatedAt || null
+      };
+      saveSyncState();
     }
 
     async function encryptPayload(payload, secret) {
@@ -993,14 +1064,22 @@
       return { syncId: match[1], secret: match[2] };
     }
 
-    function showPrivateLink() {
+    function showPrivateLink(options = {}) {
       if (!syncState) return;
       const url = new URL(window.location.href);
       url.hash = `sync=${syncState.syncId}.${syncState.secret}`;
       const value = url.toString();
-      syncCopy.hidden = false;
+      syncCopy.hidden = !options.expanded;
       syncLink.textContent = value;
       navigator.clipboard?.writeText(value).catch(() => {});
+      updateSyncPanel(options);
+    }
+
+    function updateSyncPanel(options = {}) {
+      const hasSync = Boolean(syncState);
+      const shouldExpand = options.expanded || !hasSync || !conflictPanel.hidden;
+      syncPanel.classList.toggle("compact", hasSync && !shouldExpand);
+      if (!hasSync) syncCopy.hidden = true;
     }
 
     function isSyncConfigured(showMessage = true) {
