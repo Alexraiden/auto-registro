@@ -1,0 +1,1078 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Auto registro</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #182026;
+      --muted: #58656d;
+      --line: #32393d;
+      --soft: #f4f7f6;
+      --panel: #ffffff;
+      --teal: #00d7db;
+      --teal-action: #008f96;
+      --teal-dark: #006b70;
+      --coral: #cc4f3f;
+      --focus: #f4b63f;
+      --ok: #1f7a4f;
+      --warn: #9a6200;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--soft);
+      color: var(--ink);
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 18px;
+      line-height: 1.45;
+    }
+
+    main {
+      width: min(1120px, 100%);
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    header {
+      padding: 18px 0 14px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(2rem, 6vw, 3.25rem);
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+
+    .intro {
+      margin: 0;
+      max-width: 780px;
+      color: var(--muted);
+      font-size: 1.08rem;
+    }
+
+    .screen,
+    .sync-panel {
+      background: var(--panel);
+      border: 1px solid #c8d2d6;
+      border-radius: 8px;
+      padding: 18px;
+      box-shadow: 0 10px 28px rgba(24, 32, 38, 0.08);
+    }
+
+    .sync-panel {
+      margin-bottom: 18px;
+      box-shadow: none;
+    }
+
+    .sync-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .sync-head h2 {
+      margin: 0;
+    }
+
+    .status {
+      border-radius: 8px;
+      padding: 8px 12px;
+      background: #eef4f2;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .status.ok {
+      background: #e8f5ee;
+      color: var(--ok);
+    }
+
+    .status.warn {
+      background: #fff4dd;
+      color: var(--warn);
+    }
+
+    .status.error {
+      background: #fdebea;
+      color: var(--coral);
+    }
+
+    .sync-copy,
+    .conflict {
+      margin: 12px 0 0;
+      padding: 12px;
+      border: 1px solid #c8d2d6;
+      border-radius: 8px;
+      background: #fbfdfd;
+    }
+
+    .sync-link {
+      margin-top: 8px;
+      font-size: 0.92rem;
+      color: var(--muted);
+      overflow-wrap: anywhere;
+    }
+
+    label {
+      display: block;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    input,
+    textarea,
+    select {
+      width: 100%;
+      min-height: 56px;
+      border: 2px solid #9dafb5;
+      border-radius: 8px;
+      padding: 12px 14px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+    }
+
+    textarea {
+      min-height: 112px;
+      resize: vertical;
+    }
+
+    input:focus,
+    textarea:focus,
+    select:focus,
+    button:focus {
+      outline: 4px solid var(--focus);
+      outline-offset: 2px;
+    }
+
+    .entry {
+      display: grid;
+      gap: 16px;
+    }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .wide {
+      grid-column: 1 / -1;
+    }
+
+    .emotion-row {
+      display: grid;
+      grid-template-columns: 1fr minmax(130px, 190px);
+      gap: 16px;
+      align-items: end;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 4px;
+    }
+
+    button {
+      min-height: 58px;
+      border: 0;
+      border-radius: 8px;
+      padding: 12px 18px;
+      color: #fff;
+      background: var(--teal-action);
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: var(--teal-dark);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    .secondary {
+      background: #30434b;
+    }
+
+    .secondary:hover {
+      background: #1d2d34;
+    }
+
+    .danger {
+      background: var(--coral);
+    }
+
+    .danger:hover {
+      background: #a83e31;
+    }
+
+    .ghost {
+      background: #6b7b82;
+    }
+
+    .ghost:hover {
+      background: #4d5c62;
+    }
+
+    .entries {
+      margin-top: 24px;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 1.35rem;
+      letter-spacing: 0;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+
+    table {
+      width: 100%;
+      min-width: 980px;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    th,
+    td {
+      border: 1px solid var(--line);
+      vertical-align: top;
+      padding: 8px;
+      word-wrap: break-word;
+    }
+
+    th {
+      background: var(--teal);
+      color: #000;
+      font-size: 0.95rem;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    td {
+      min-height: 64px;
+      height: 64px;
+      background: #fff;
+    }
+
+    .date-col {
+      width: 11%;
+    }
+
+    .emotion-col {
+      width: 14%;
+    }
+
+    .actions-col {
+      width: 14%;
+    }
+
+    .row-actions {
+      display: grid;
+      gap: 8px;
+    }
+
+    .row-actions button {
+      min-height: 44px;
+      padding: 8px 10px;
+      font-size: 0.95rem;
+    }
+
+    .empty {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .print-sheet {
+      display: none;
+    }
+
+    @media (max-width: 720px) {
+      main {
+        padding: 12px;
+      }
+
+      .screen,
+      .sync-panel {
+        padding: 14px;
+      }
+
+      .field-grid,
+      .emotion-row {
+        grid-template-columns: 1fr;
+      }
+
+      button {
+        width: 100%;
+      }
+
+      .table-wrap {
+        margin-inline: -14px;
+        border-inline: 0;
+      }
+    }
+
+    @media print {
+      @page {
+        size: A4 portrait;
+        margin: 13mm 12mm;
+      }
+
+      body {
+        background: #fff;
+        font-size: 9.5px;
+        line-height: 1.25;
+      }
+
+      main {
+        width: 100%;
+        padding: 0;
+      }
+
+      header,
+      .screen,
+      .sync-panel {
+        display: none;
+      }
+
+      .print-sheet {
+        display: block;
+        padding-top: 5mm;
+      }
+
+      table {
+        width: 100%;
+        min-width: 0;
+        border-collapse: collapse;
+        table-layout: fixed;
+      }
+
+      th,
+      td {
+        border: 1px solid #333;
+        vertical-align: top;
+        padding: 4px;
+        word-wrap: break-word;
+      }
+
+      th {
+        background: #00d7db;
+        color: #000;
+        font-size: 8.5px;
+        font-weight: 700;
+        text-align: center;
+      }
+
+      td {
+        height: 42px;
+        min-height: 42px;
+      }
+
+      .date-col {
+        width: 11%;
+      }
+
+      .emotion-col {
+        width: 15%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Auto registro</h1>
+      <p class="intro">Completar una situación a la vez. Los campos de texto aceptan el dictado vocal del teclado del teléfono.</p>
+    </header>
+
+    <section class="sync-panel" aria-label="Sincronización">
+      <div class="sync-head">
+        <h2>Sincronización</h2>
+        <div id="sync-status" class="status">Guardado en este dispositivo</div>
+      </div>
+      <div class="actions">
+        <button type="button" id="create-sync">Crear enlace privado</button>
+        <button class="secondary" type="button" id="connect-sync">Conectar con enlace privado</button>
+        <button class="ghost" type="button" id="sync-now">Sincronizar ahora</button>
+      </div>
+      <div id="sync-copy" class="sync-copy" hidden>
+        <strong>Enlace privado</strong>
+        <div id="sync-link" class="sync-link"></div>
+      </div>
+      <div id="conflict" class="conflict" hidden>
+        <strong>Hay una versión en línea más reciente.</strong>
+        <div class="actions">
+          <button type="button" id="load-remote">Cargar versión en línea</button>
+          <button class="secondary" type="button" id="replace-remote">Reemplazar con este dispositivo</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen" aria-label="Formulario">
+      <form id="entry-form" class="entry">
+        <div class="field-grid">
+          <div>
+            <label for="date">Fecha</label>
+            <input id="date" type="date">
+          </div>
+
+          <div class="wide">
+            <label for="situation">Situación</label>
+            <textarea id="situation" autocomplete="off" placeholder="¿Qué pasó?"></textarea>
+          </div>
+
+          <div>
+            <label for="thought">¿Qué pienso?</label>
+            <textarea id="thought" autocomplete="off" placeholder="¿Qué pensamientos aparecieron?"></textarea>
+          </div>
+
+          <div>
+            <label for="feeling">¿Qué siento?</label>
+            <textarea id="feeling" autocomplete="off" placeholder="Emociones, sensaciones, cuerpo..."></textarea>
+          </div>
+
+          <div>
+            <label for="action">¿Qué hago?</label>
+            <textarea id="action" autocomplete="off" placeholder="¿Cómo reaccioné?"></textarea>
+          </div>
+
+          <div class="emotion-row">
+            <div>
+              <label for="emotion">Emoción</label>
+              <input id="emotion" autocomplete="off" placeholder="Ej. tristeza, miedo, enojo">
+            </div>
+            <div>
+              <label for="intensity">Intensidad /10</label>
+              <select id="intensity">
+                <option value="">Elegir</option>
+                <option>1</option>
+                <option>2</option>
+                <option>3</option>
+                <option>4</option>
+                <option>5</option>
+                <option>6</option>
+                <option>7</option>
+                <option>8</option>
+                <option>9</option>
+                <option>10</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button type="submit" id="save">Agregar línea</button>
+          <button class="ghost" type="button" id="cancel-edit" hidden>Cancelar edición</button>
+          <button class="secondary" type="button" id="print">Transformar en PDF</button>
+          <button class="danger" type="button" id="clear">Eliminar todas las líneas</button>
+        </div>
+      </form>
+
+      <section class="entries" aria-label="Líneas registradas">
+        <h2>Líneas registradas</h2>
+        <div class="table-wrap">
+          <table aria-label="Tabla de auto registro">
+            <thead>
+              <tr>
+                <th class="date-col">Fecha</th>
+                <th>Situación</th>
+                <th>¿Qué pienso?</th>
+                <th>¿Qué siento?</th>
+                <th>¿Qué hago?</th>
+                <th class="emotion-col">Emociones de 1 a 10<br>(ej. tristeza 8)</th>
+                <th class="actions-col">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="entry-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+
+    <section class="print-sheet" aria-label="Versión PDF">
+      <table>
+        <thead>
+          <tr>
+            <th class="date-col">Fecha</th>
+            <th>Situación</th>
+            <th>¿Qué pienso?</th>
+            <th>¿Qué siento?</th>
+            <th>¿Qué hago?</th>
+            <th class="emotion-col">Emociones de 1 a 10<br>(ej. tristeza 8)</th>
+          </tr>
+        </thead>
+        <tbody id="print-body"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <script>
+    const syncApiBase = "https://CHANGE-ME.workers.dev";
+    const fields = ["situation", "thought", "feeling", "action", "emotion", "intensity"];
+    const entriesKey = "auto-registro-entries";
+    const metaKey = "auto-registro-meta";
+    const syncStateKey = "auto-registro-sync";
+    const maxPayloadBytes = 120000;
+
+    let entries = readJson(entriesKey, []);
+    let localMeta = readJson(metaKey, { version: 0, updatedAt: null });
+    let syncState = readJson(syncStateKey, null);
+    let editingIndex = -1;
+    let pendingRemoteRecord = null;
+
+    const today = new Date();
+    const dateInput = document.querySelector("#date");
+    const localToday = new Date(today.getTime() - today.getTimezoneOffset() * 60000);
+    dateInput.value = localToday.toISOString().slice(0, 10);
+
+    const form = document.querySelector("#entry-form");
+    const saveButton = document.querySelector("#save");
+    const cancelEditButton = document.querySelector("#cancel-edit");
+    const syncStatus = document.querySelector("#sync-status");
+    const syncCopy = document.querySelector("#sync-copy");
+    const syncLink = document.querySelector("#sync-link");
+    const conflictPanel = document.querySelector("#conflict");
+
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const entry = readEntryFromForm();
+
+      if (!entry.situation && !entry.thought && !entry.feeling && !entry.action && !entry.emotion && !entry.intensity) {
+        document.querySelector("#situation").focus();
+        return;
+      }
+
+      if (editingIndex >= 0) {
+        entries[editingIndex] = entry;
+        editingIndex = -1;
+      } else {
+        entries.push(entry);
+      }
+
+      persistEntries(true);
+      resetForm();
+      renderEntries();
+      renderPrint();
+      syncIfReady();
+    });
+
+    cancelEditButton.addEventListener("click", () => {
+      resetForm();
+    });
+
+    document.querySelector("#print").addEventListener("click", () => {
+      renderPrint();
+      window.print();
+    });
+
+    document.querySelector("#clear").addEventListener("click", () => {
+      if (!entries.length) return;
+      const ok = confirm("¿Eliminar todas las líneas registradas?");
+      if (!ok) return;
+      entries.splice(0, entries.length);
+      persistEntries(true);
+      resetForm();
+      renderEntries();
+      renderPrint();
+      syncIfReady();
+    });
+
+    document.querySelector("#create-sync").addEventListener("click", async () => {
+      try {
+        if (!isSyncConfigured()) return;
+        const syncId = randomToken(18);
+        const secret = randomToken(32);
+        const accessHash = await hashSecret(secret);
+        syncState = { syncId, secret, accessHash };
+        saveSyncState();
+        showPrivateLink();
+        setSyncStatus("Guardando en línea...", "warn");
+        await pushRemote({ force: true });
+        setSyncStatus("Sincronizado", "ok");
+      } catch (error) {
+        setSyncError(error);
+      }
+    });
+
+    document.querySelector("#connect-sync").addEventListener("click", async () => {
+      const link = prompt("Pegar el enlace privado de sincronización:");
+      if (!link) return;
+      await connectFromPrivateLink(link);
+    });
+
+    document.querySelector("#sync-now").addEventListener("click", async () => {
+      await syncNow();
+    });
+
+    document.querySelector("#load-remote").addEventListener("click", async () => {
+      if (!pendingRemoteRecord) return;
+      await applyRemoteRecord(pendingRemoteRecord);
+      pendingRemoteRecord = null;
+      conflictPanel.hidden = true;
+      setSyncStatus("Sincronizado", "ok");
+    });
+
+    document.querySelector("#replace-remote").addEventListener("click", async () => {
+      pendingRemoteRecord = null;
+      conflictPanel.hidden = true;
+      await pushRemote({ force: true });
+    });
+
+    window.addEventListener("online", () => {
+      syncIfReady();
+    });
+
+    function readEntryFromForm() {
+      return {
+        date: dateInput.value,
+        situation: valueOf("situation"),
+        thought: valueOf("thought"),
+        feeling: valueOf("feeling"),
+        action: valueOf("action"),
+        emotion: valueOf("emotion"),
+        intensity: valueOf("intensity")
+      };
+    }
+
+    function valueOf(id) {
+      return document.querySelector(`#${id}`).value.trim();
+    }
+
+    function readJson(key, fallback) {
+      try {
+        const value = localStorage.getItem(key);
+        return value ? JSON.parse(value) : fallback;
+      } catch {
+        return fallback;
+      }
+    }
+
+    function persistEntries(markChanged) {
+      if (markChanged) {
+        localMeta = {
+          version: Number(localMeta.version || 0) + 1,
+          updatedAt: new Date().toISOString()
+        };
+        localStorage.setItem(metaKey, JSON.stringify(localMeta));
+      }
+      localStorage.setItem(entriesKey, JSON.stringify(entries));
+      if (!syncState) setSyncStatus("Guardado en este dispositivo", "warn");
+    }
+
+    function saveSyncState() {
+      localStorage.setItem(syncStateKey, JSON.stringify(syncState));
+    }
+
+    function resetForm() {
+      fields.forEach((id) => {
+        document.querySelector(`#${id}`).value = "";
+      });
+      dateInput.value = localToday.toISOString().slice(0, 10);
+      editingIndex = -1;
+      saveButton.textContent = "Agregar línea";
+      cancelEditButton.hidden = true;
+      document.querySelector("#situation").focus();
+    }
+
+    function editEntry(index) {
+      const entry = entries[index];
+      editingIndex = index;
+      dateInput.value = entry.date || localToday.toISOString().slice(0, 10);
+      document.querySelector("#situation").value = entry.situation || "";
+      document.querySelector("#thought").value = entry.thought || "";
+      document.querySelector("#feeling").value = entry.feeling || "";
+      document.querySelector("#action").value = entry.action || "";
+      document.querySelector("#emotion").value = entry.emotion || "";
+      document.querySelector("#intensity").value = entry.intensity || entry.score || "";
+      saveButton.textContent = "Guardar cambios";
+      cancelEditButton.hidden = false;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      document.querySelector("#situation").focus();
+    }
+
+    function deleteEntry(index) {
+      const ok = confirm(`¿Eliminar la línea ${index + 1}?`);
+      if (!ok) return;
+      entries.splice(index, 1);
+      persistEntries(true);
+      resetForm();
+      renderEntries();
+      renderPrint();
+      syncIfReady();
+    }
+
+    function renderEntries() {
+      const body = document.querySelector("#entry-body");
+      body.innerHTML = "";
+
+      if (!entries.length) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td colspan="7"><p class="empty">No hay líneas registradas por el momento.</p></td>
+        `;
+        body.appendChild(tr);
+        return;
+      }
+
+      entries.forEach((entry, index) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${escapeText(formatDate(entry.date || ""))}</td>
+          <td>${escapeText(entry.situation || "")}</td>
+          <td>${escapeText(entry.thought || "")}</td>
+          <td>${escapeText(entry.feeling || "")}</td>
+          <td>${escapeText(entry.action || "")}</td>
+          <td>${escapeText(emotionText(entry))}</td>
+          <td>
+            <div class="row-actions">
+              <button class="secondary" type="button" data-action="edit" data-index="${index}">Editar</button>
+              <button class="danger" type="button" data-action="delete" data-index="${index}">Eliminar</button>
+            </div>
+          </td>
+        `;
+        body.appendChild(tr);
+      });
+
+      body.querySelectorAll("button").forEach((button) => {
+        button.addEventListener("click", () => {
+          const index = Number(button.dataset.index);
+          if (button.dataset.action === "edit") editEntry(index);
+          if (button.dataset.action === "delete") deleteEntry(index);
+        });
+      });
+    }
+
+    function renderPrint() {
+      const body = document.querySelector("#print-body");
+      body.innerHTML = "";
+
+      const rows = entries.length ? entries : [{ date: dateInput.value }];
+      const printableRows = [...rows];
+      while (printableRows.length < 22) {
+        printableRows.push({});
+      }
+
+      printableRows.forEach((entry) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${escapeText(formatDate(entry.date || ""))}</td>
+          <td>${escapeText(entry.situation || "")}</td>
+          <td>${escapeText(entry.thought || "")}</td>
+          <td>${escapeText(entry.feeling || "")}</td>
+          <td>${escapeText(entry.action || "")}</td>
+          <td>${escapeText(emotionText(entry))}</td>
+        `;
+        body.appendChild(tr);
+      });
+    }
+
+    async function connectFromPrivateLink(link) {
+      try {
+        if (!isSyncConfigured()) return;
+        const parsed = parseSyncLink(link);
+        if (!parsed) {
+          setSyncStatus("Enlace privado no válido", "error");
+          return;
+        }
+
+        syncState = {
+          syncId: parsed.syncId,
+          secret: parsed.secret,
+          accessHash: await hashSecret(parsed.secret)
+        };
+        saveSyncState();
+        showPrivateLink();
+        await syncNow();
+      } catch (error) {
+        setSyncError(error);
+      }
+    }
+
+    async function syncNow() {
+      try {
+        if (!syncState) {
+          setSyncStatus("Crear o conectar un enlace privado", "warn");
+          return;
+        }
+        if (!navigator.onLine) {
+          setSyncStatus("Sin conexión", "warn");
+          return;
+        }
+        if (!isSyncConfigured()) return;
+
+        setSyncStatus("Sincronizando...", "warn");
+        const remoteRecord = await fetchRemote();
+        if (!remoteRecord) {
+          await pushRemote({ force: true });
+          return;
+        }
+
+        const remotePayload = await decryptPayload(remoteRecord.encryptedPayload, syncState.secret);
+        const remoteVersion = Number(remotePayload.version || remoteRecord.version || 0);
+        const localVersion = Number(localMeta.version || 0);
+        if (!entries.length && Array.isArray(remotePayload.entries) && remotePayload.entries.length) {
+          await applyRemoteRecord(remoteRecord);
+          setSyncStatus("Sincronizado", "ok");
+          return;
+        }
+
+        const remoteChangedAtSameVersion =
+          remoteVersion === localVersion &&
+          remotePayload.updatedAt !== localMeta.updatedAt &&
+          JSON.stringify(remotePayload.entries || []) !== JSON.stringify(entries);
+
+        if (remoteVersion > localVersion || remoteChangedAtSameVersion) {
+          pendingRemoteRecord = remoteRecord;
+          conflictPanel.hidden = false;
+          setSyncStatus("Conflicto", "warn");
+          return;
+        }
+
+        if (localVersion > remoteVersion) {
+          await pushRemote({ force: true });
+          return;
+        }
+
+        setSyncStatus("Sincronizado", "ok");
+      } catch (error) {
+        setSyncError(error);
+      }
+    }
+
+    async function syncIfReady() {
+      if (!syncState || !navigator.onLine || !isSyncConfigured(false)) return;
+      await syncNow();
+    }
+
+    async function fetchRemote() {
+      const response = await fetch(`${normalizedSyncBase()}/records/${encodeURIComponent(syncState.syncId)}`, {
+        headers: {
+          "X-Access-Hash": syncState.accessHash
+        }
+      });
+
+      if (response.status === 404) return null;
+      if (!response.ok) throw new Error("No se pudo cargar la versión en línea");
+      return response.json();
+    }
+
+    async function pushRemote() {
+      if (!syncState) return;
+      if (!localMeta.updatedAt) {
+        localMeta = {
+          version: Number(localMeta.version || 0),
+          updatedAt: new Date().toISOString()
+        };
+        localStorage.setItem(metaKey, JSON.stringify(localMeta));
+      }
+      const payload = {
+        entries,
+        version: Number(localMeta.version || 0),
+        updatedAt: localMeta.updatedAt
+      };
+      const encryptedPayload = await encryptPayload(payload, syncState.secret);
+      const requestBody = {
+        accessHash: syncState.accessHash,
+        encryptedPayload,
+        version: payload.version,
+        updatedAt: payload.updatedAt
+      };
+      const body = JSON.stringify(requestBody);
+      if (new Blob([body]).size > maxPayloadBytes) {
+        throw new Error("El contenido es demasiado grande para sincronizar");
+      }
+
+      const response = await fetch(`${normalizedSyncBase()}/records/${encodeURIComponent(syncState.syncId)}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Access-Hash": syncState.accessHash
+        },
+        body
+      });
+
+      if (!response.ok) throw new Error("No se pudo guardar en línea");
+      setSyncStatus("Sincronizado", "ok");
+    }
+
+    async function applyRemoteRecord(remoteRecord) {
+      const remotePayload = await decryptPayload(remoteRecord.encryptedPayload, syncState.secret);
+      entries = Array.isArray(remotePayload.entries) ? remotePayload.entries : [];
+      localMeta = {
+        version: Number(remotePayload.version || remoteRecord.version || 0),
+        updatedAt: remotePayload.updatedAt || remoteRecord.updatedAt || new Date().toISOString()
+      };
+      localStorage.setItem(entriesKey, JSON.stringify(entries));
+      localStorage.setItem(metaKey, JSON.stringify(localMeta));
+      renderEntries();
+      renderPrint();
+    }
+
+    async function encryptPayload(payload, secret) {
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const key = await deriveAesKey(secret);
+      const encoded = new TextEncoder().encode(JSON.stringify(payload));
+      const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoded);
+      return {
+        iv: bytesToBase64Url(iv),
+        ciphertext: bytesToBase64Url(new Uint8Array(ciphertext))
+      };
+    }
+
+    async function decryptPayload(encryptedPayload, secret) {
+      const key = await deriveAesKey(secret);
+      const iv = base64UrlToBytes(encryptedPayload.iv);
+      const ciphertext = base64UrlToBytes(encryptedPayload.ciphertext);
+      const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ciphertext);
+      return JSON.parse(new TextDecoder().decode(decrypted));
+    }
+
+    async function deriveAesKey(secret) {
+      const material = await crypto.subtle.importKey(
+        "raw",
+        new TextEncoder().encode(secret),
+        "PBKDF2",
+        false,
+        ["deriveKey"]
+      );
+      return crypto.subtle.deriveKey(
+        {
+          name: "PBKDF2",
+          salt: new TextEncoder().encode(`auto-registro:${syncState ? syncState.syncId : "local"}`),
+          iterations: 150000,
+          hash: "SHA-256"
+        },
+        material,
+        { name: "AES-GCM", length: 256 },
+        false,
+        ["encrypt", "decrypt"]
+      );
+    }
+
+    async function hashSecret(secret) {
+      const data = new TextEncoder().encode(`auto-registro-access:${secret}`);
+      const digest = await crypto.subtle.digest("SHA-256", data);
+      return bytesToBase64Url(new Uint8Array(digest));
+    }
+
+    function randomToken(byteLength) {
+      const bytes = crypto.getRandomValues(new Uint8Array(byteLength));
+      return bytesToBase64Url(bytes);
+    }
+
+    function parseSyncLink(link) {
+      let hash = "";
+      try {
+        hash = new URL(link).hash;
+      } catch {
+        hash = link.startsWith("#") ? link : `#${link}`;
+      }
+
+      const match = hash.match(/^#sync=([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)$/);
+      if (!match) return null;
+      return { syncId: match[1], secret: match[2] };
+    }
+
+    function showPrivateLink() {
+      if (!syncState) return;
+      const url = new URL(window.location.href);
+      url.hash = `sync=${syncState.syncId}.${syncState.secret}`;
+      const value = url.toString();
+      syncCopy.hidden = false;
+      syncLink.textContent = value;
+      navigator.clipboard?.writeText(value).catch(() => {});
+    }
+
+    function isSyncConfigured(showMessage = true) {
+      const configured = !syncApiBase.includes("CHANGE-ME");
+      if (!configured && showMessage) {
+        setSyncStatus("Configurar la URL del servicio de sincronización", "error");
+      }
+      return configured;
+    }
+
+    function normalizedSyncBase() {
+      return syncApiBase.replace(/\/+$/, "");
+    }
+
+    function setSyncStatus(message, kind) {
+      syncStatus.textContent = message;
+      syncStatus.className = `status ${kind || ""}`.trim();
+    }
+
+    function setSyncError(error) {
+      setSyncStatus(error.message || "Error de sincronización", "error");
+    }
+
+    function bytesToBase64Url(bytes) {
+      let binary = "";
+      bytes.forEach((byte) => {
+        binary += String.fromCharCode(byte);
+      });
+      return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+    }
+
+    function base64UrlToBytes(value) {
+      const base64 = value.replaceAll("-", "+").replaceAll("_", "/").padEnd(Math.ceil(value.length / 4) * 4, "=");
+      const binary = atob(base64);
+      return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+    }
+
+    function emotionText(entry) {
+      const intensity = entry.intensity || entry.score || "";
+      if (!entry.emotion && !intensity) return "";
+      if (!intensity) return entry.emotion;
+      if (!entry.emotion) return `${intensity}/10`;
+      return `${entry.emotion} ${intensity}/10`;
+    }
+
+    function formatDate(value) {
+      if (!value) return "";
+      const parts = value.split("-");
+      if (parts.length !== 3) return value;
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+
+    function escapeText(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    renderEntries();
+    renderPrint();
+    showPrivateLink();
+    if (window.location.hash.startsWith("#sync=")) {
+      connectFromPrivateLink(window.location.href);
+    } else if (syncState) {
+      setSyncStatus("Guardado en este dispositivo", "warn");
+      syncIfReady();
+    } else {
+      setSyncStatus("Guardado en este dispositivo", "warn");
+    }
+  </script>
+</body>
+</html>
