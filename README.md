@@ -1,6 +1,6 @@
 # Auto registro
 
-Aplicación estática para completar un auto registro, guardar los datos en el navegador, sincronizarlos opcionalmente entre dispositivos y generar un PDF desde la impresión del navegador.
+Aplicación estática para completar un auto registro, guardar los datos en el navegador, sincronizarlos opcionalmente entre dispositivos y compartir un PDF desde el menú nativo del teléfono.
 
 ## Archivos
 

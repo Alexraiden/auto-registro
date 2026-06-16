@@ -509,7 +509,7 @@
         <div class="actions">
           <button type="submit" id="save">Agregar línea</button>
           <button class="ghost" type="button" id="cancel-edit" hidden>Cancelar edición</button>
-          <button class="secondary" type="button" id="print">Transformar en PDF</button>
+          <button class="secondary" type="button" id="share-pdf">Compartir</button>
           <button class="danger" type="button" id="clear">Eliminar todas las líneas</button>
         </div>
       </form>
@@ -552,6 +552,7 @@
     </section>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script>
     const syncApiBase = "https://auto-registro.a-carrillo270189.workers.dev";
     const fields = ["situation", "thought", "feeling", "action", "emotion", "intensity"];
@@ -607,9 +608,8 @@
       resetForm();
     });
 
-    document.querySelector("#print").addEventListener("click", () => {
-      renderPrint();
-      window.print();
+    document.querySelector("#share-pdf").addEventListener("click", async () => {
+      await sharePdf();
     });
 
     document.querySelector("#clear").addEventListener("click", () => {
@@ -826,6 +826,117 @@
         `;
         body.appendChild(tr);
       });
+    }
+
+    async function sharePdf() {
+      try {
+        const blob = buildPdfBlob();
+        const file = new File([blob], "auto-registro.pdf", { type: "application/pdf" });
+
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: "Auto registro",
+            text: "Auto registro"
+          });
+          return;
+        }
+
+        downloadBlob(blob, "auto-registro.pdf");
+        alert("El PDF se ha descargado. Puedes enviarlo por WhatsApp desde tus archivos.");
+      } catch (error) {
+        renderPrint();
+        window.print();
+      }
+    }
+
+    function buildPdfBlob() {
+      const jsPdf = window.jspdf && window.jspdf.jsPDF;
+      if (!jsPdf) throw new Error("PDF library unavailable");
+
+      const doc = new jsPdf({ unit: "mm", format: "a4", orientation: "portrait" });
+      const margin = 10;
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const widths = [19, 36, 36, 36, 36, 27];
+      const headers = [
+        "Fecha",
+        "Situación",
+        "¿Qué pienso?",
+        "¿Qué siento?",
+        "¿Qué hago?",
+        "Emociones de 1 a 10\n(ej. tristeza 8)"
+      ];
+      const rows = entries.length ? entries : [{ date: dateInput.value }];
+      const printableRows = [...rows];
+      while (printableRows.length < 22) {
+        printableRows.push({});
+      }
+
+      let y = 14;
+      drawPdfHeader(doc, headers, widths, margin, y);
+      y += 10;
+
+      printableRows.forEach((entry) => {
+        const values = [
+          formatDate(entry.date || ""),
+          entry.situation || "",
+          entry.thought || "",
+          entry.feeling || "",
+          entry.action || "",
+          emotionText(entry)
+        ];
+        const lines = values.map((value, index) => doc.splitTextToSize(String(value), widths[index] - 3));
+        const rowHeight = Math.max(12, ...lines.map((line) => line.length * 3.7 + 4));
+
+        if (y + rowHeight > pageHeight - margin) {
+          doc.addPage();
+          y = 14;
+          drawPdfHeader(doc, headers, widths, margin, y);
+          y += 10;
+        }
+
+        drawPdfRow(doc, lines, widths, margin, y, rowHeight);
+        y += rowHeight;
+      });
+
+      return doc.output("blob");
+    }
+
+    function drawPdfHeader(doc, headers, widths, x, y) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.5);
+      doc.setFillColor(0, 215, 219);
+      let currentX = x;
+
+      headers.forEach((header, index) => {
+        doc.rect(currentX, y, widths[index], 10, "FD");
+        const lines = doc.splitTextToSize(header, widths[index] - 2);
+        doc.text(lines, currentX + widths[index] / 2, y + 4, { align: "center", baseline: "middle" });
+        currentX += widths[index];
+      });
+    }
+
+    function drawPdfRow(doc, lines, widths, x, y, height) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      let currentX = x;
+
+      lines.forEach((line, index) => {
+        doc.rect(currentX, y, widths[index], height);
+        doc.text(line, currentX + 1.5, y + 4);
+        currentX += widths[index];
+      });
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
     }
 
     async function connectFromPrivateLink(link) {
