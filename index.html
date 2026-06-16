@@ -903,9 +903,10 @@
     }
 
     function drawPdfHeader(doc, headers, widths, x, y) {
+      const headerColor = cssColorToRgb("--teal");
       doc.setFont("helvetica", "bold");
       doc.setFontSize(7.5);
-      doc.setFillColor(0, 215, 219);
+      doc.setFillColor(headerColor.r, headerColor.g, headerColor.b);
       let currentX = x;
 
       headers.forEach((header, index) => {
@@ -914,6 +915,17 @@
         doc.text(lines, currentX + widths[index] / 2, y + 4, { align: "center", baseline: "middle" });
         currentX += widths[index];
       });
+    }
+
+    function cssColorToRgb(variableName) {
+      const value = getComputedStyle(document.documentElement).getPropertyValue(variableName).trim();
+      const match = value.match(/^#([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
+      if (!match) return { r: 0, g: 215, b: 219 };
+      return {
+        r: parseInt(match[1], 16),
+        g: parseInt(match[2], 16),
+        b: parseInt(match[3], 16)
+      };
     }
 
     function drawPdfRow(doc, lines, widths, x, y, height) {
