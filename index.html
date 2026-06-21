@@ -398,6 +398,8 @@
         vertical-align: top;
         padding: 4px;
         word-wrap: break-word;
+        overflow-wrap: anywhere;
+        word-break: break-word;
       }
 
       th {
@@ -409,8 +411,9 @@
       }
 
       td {
-        height: 42px;
+        height: auto;
         min-height: 42px;
+        white-space: pre-wrap;
       }
 
       .date-col {
@@ -575,6 +578,7 @@
     const form = document.querySelector("#entry-form");
     const saveButton = document.querySelector("#save");
     const cancelEditButton = document.querySelector("#cancel-edit");
+    const shareButton = document.querySelector("#share-pdf");
     const syncStatus = document.querySelector("#sync-status");
     const syncCopy = document.querySelector("#sync-copy");
     const syncLink = document.querySelector("#sync-link");
@@ -608,7 +612,15 @@
       resetForm();
     });
 
-    document.querySelector("#share-pdf").addEventListener("click", async () => {
+    shareButton.addEventListener("click", async () => {
+      if (hasDraftEntry()) {
+        alert(editingIndex >= 0
+          ? "Primero guarda o cancela los cambios antes de compartir el PDF."
+          : "Primero agrega la línea antes de compartir el PDF.");
+        saveButton.focus();
+        return;
+      }
+
       await sharePdf();
     });
 
@@ -698,6 +710,10 @@
 
     function valueOf(id) {
       return document.querySelector(`#${id}`).value.trim();
+    }
+
+    function hasDraftEntry() {
+      return editingIndex >= 0 || fields.some((id) => valueOf(id));
     }
 
     function readJson(key, fallback) {
@@ -862,6 +878,8 @@
       const cellPaddingX = 1.5;
       const cellPaddingY = 2;
       const lineHeight = 3.8;
+      const bodyFontSize = 7.5;
+      const headerFontSize = 7.5;
       const widths = [19, 36, 36, 36, 36, 27];
       const headers = [
         { title: "Fecha" },
@@ -872,8 +890,11 @@
         { title: "Emociones de\n1 a 10", subtitle: "(ej. tristeza 8)" }
       ];
       const rows = entries.length ? entries : [{ date: dateInput.value }];
-      const headerLines = preparePdfLines(doc, headers, widths, cellPaddingX);
-      const headerHeight = measurePdfRowHeight(headerLines, cellPaddingY, lineHeight, 10);
+      const headerLines = preparePdfLines(doc, headers, widths, cellPaddingX, {
+        fontSize: headerFontSize,
+        fontStyle: "bold"
+      });
+      const headerHeight = Math.max(16, measurePdfRowHeight(headerLines, cellPaddingY, lineHeight, 10));
 
       let y = headerY;
       drawPdfHeader(doc, headerLines, widths, margin, y, headerHeight, cellPaddingY, lineHeight);
@@ -888,18 +909,22 @@
           entry.action || "",
           emotionText(entry)
         ];
-        const lines = preparePdfLines(doc, values, widths, cellPaddingX);
-        const rowHeight = measurePdfRowHeight(lines, cellPaddingY, lineHeight, 12);
+        const lines = preparePdfLines(doc, values, widths, cellPaddingX, {
+          fontSize: bodyFontSize,
+          fontStyle: "normal"
+        });
 
-        if (y + rowHeight > pageHeight - margin) {
-          doc.addPage();
-          y = headerY;
-          drawPdfHeader(doc, headerLines, widths, margin, y, headerHeight, cellPaddingY, lineHeight);
-          y += headerHeight;
-        }
-
-        drawPdfRow(doc, lines, widths, margin, y, rowHeight, cellPaddingX, cellPaddingY, lineHeight);
-        y += rowHeight;
+        y = drawPdfRowAcrossPages(doc, lines, widths, margin, y, {
+          pageHeight,
+          margin,
+          headerY,
+          headerLines,
+          headerHeight,
+          cellPaddingX,
+          cellPaddingY,
+          lineHeight,
+          minimumHeight: 12
+        });
       });
 
       while (y + blankRowHeight <= pageHeight - margin) {
@@ -910,16 +935,102 @@
       return doc.output("blob");
     }
 
-    function preparePdfLines(doc, values, widths, paddingX) {
+    function preparePdfLines(doc, values, widths, paddingX, options = {}) {
+      setPdfTextStyle(doc, options.fontStyle || "normal", options.fontSize || 7.5);
       return values.map((value, index) => {
         const text = typeof value === "object" ? value.title || "" : value || "";
-        return doc.splitTextToSize(String(text), widths[index] - paddingX * 2);
+        const maxWidth = Math.max(1, widths[index] - paddingX * 2 - 0.4);
+        return wrapPdfText(doc, String(text), maxWidth);
       });
+    }
+
+    function setPdfTextStyle(doc, style, size) {
+      doc.setFont("helvetica", style);
+      doc.setFontSize(size);
+    }
+
+    function wrapPdfText(doc, text, maxWidth) {
+      const normalizedText = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+      if (!normalizedText) return [];
+
+      const wrappedLines = [];
+      normalizedText.split("\n").forEach((paragraph) => {
+        if (!paragraph) {
+          wrappedLines.push("");
+          return;
+        }
+
+        const splitLines = [].concat(doc.splitTextToSize(paragraph, maxWidth) || []);
+        splitLines.forEach((line) => {
+          wrappedLines.push(...splitPdfLineByWidth(doc, String(line), maxWidth));
+        });
+      });
+
+      return wrappedLines;
+    }
+
+    function splitPdfLineByWidth(doc, line, maxWidth) {
+      if (!line || doc.getTextWidth(line) <= maxWidth) return [line];
+
+      const chunks = [];
+      let currentChunk = "";
+      [...line].forEach((character) => {
+        const candidate = currentChunk + character;
+        if (currentChunk && doc.getTextWidth(candidate) > maxWidth) {
+          chunks.push(currentChunk);
+          currentChunk = character;
+          return;
+        }
+        currentChunk = candidate;
+      });
+
+      if (currentChunk) chunks.push(currentChunk);
+      return chunks;
     }
 
     function measurePdfRowHeight(lines, paddingY, lineHeight, minimumHeight) {
       const maxLines = Math.max(1, ...lines.map((line) => line.length || 1));
       return Math.max(minimumHeight, paddingY * 2 + maxLines * lineHeight);
+    }
+
+    function drawPdfRowAcrossPages(doc, lines, widths, x, y, config) {
+      const offsets = lines.map(() => 0);
+      let hasDrawnSegment = false;
+      let currentY = y;
+
+      while (!hasDrawnSegment || hasRemainingPdfLines(lines, offsets)) {
+        const availableHeight = config.pageHeight - config.margin - currentY;
+        let maxLinesOnPage = Math.floor((availableHeight - config.cellPaddingY * 2) / config.lineHeight);
+
+        if (availableHeight < config.minimumHeight || maxLinesOnPage < 1) {
+          doc.addPage();
+          currentY = config.headerY;
+          drawPdfHeader(doc, config.headerLines, widths, x, currentY, config.headerHeight, config.cellPaddingY, config.lineHeight);
+          currentY += config.headerHeight;
+          maxLinesOnPage = Math.floor((config.pageHeight - config.margin - currentY - config.cellPaddingY * 2) / config.lineHeight);
+        }
+
+        const remainingLines = Math.max(1, ...lines.map((line, index) => Math.max(0, line.length - offsets[index])));
+        const segmentLineCount = Math.max(1, Math.min(remainingLines, maxLinesOnPage));
+        const segmentLines = lines.map((line, index) => {
+          const start = offsets[index];
+          return line.slice(start, start + segmentLineCount);
+        });
+        const rowHeight = measurePdfRowHeight(segmentLines, config.cellPaddingY, config.lineHeight, config.minimumHeight);
+
+        drawPdfRow(doc, segmentLines, widths, x, currentY, rowHeight, config.cellPaddingX, config.cellPaddingY, config.lineHeight);
+        currentY += rowHeight;
+        lines.forEach((line, index) => {
+          offsets[index] = Math.min(line.length, offsets[index] + segmentLineCount);
+        });
+        hasDrawnSegment = true;
+      }
+
+      return currentY;
+    }
+
+    function hasRemainingPdfLines(lines, offsets) {
+      return lines.some((line, index) => offsets[index] < line.length);
     }
 
     function drawPdfHeader(doc, lines, widths, x, y, height, paddingY, lineHeight) {
